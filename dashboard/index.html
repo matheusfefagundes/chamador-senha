@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chamador de senha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --fundo: #E7EBF0;
+      --superficie: #FFFFFF;
+      --tinta: #172033;
+      --tinta-suave: #556074;
+      --linha: #D2D8E1;
+      --guiche: #1D4ED8;
+      --guiche-escuro: #163DA8;
+      --display-corpo: #151A24;
+      --display-borda: #2B3242;
+      --led-aceso: #FF3B2F;
+      --led-apagado: #252B37;
+      --ticket: #FFF3C4;
+      --ticket-tinta: #5A4300;
+      --ok: #137547;
+      --ok-fundo: #E3F4EA;
+      --erro: #B3261E;
+      --erro-fundo: #FBE7E5;
+      --neutro-fundo: #EDF0F4;
+      --raio: 14px;
+      --fonte: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --fonte-sinal: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--fundo);
+      color: var(--tinta);
+      font-family: var(--fonte);
+      font-size: 17px;
+      line-height: 1.5;
+    }
+
+    /* ---------- Topo ---------- */
+    .topo {
+      display: flex; flex-wrap: wrap; gap: 12px 24px;
+      align-items: center; justify-content: space-between;
+      padding: 18px clamp(16px, 4vw, 40px);
+      background: var(--superficie);
+      border-bottom: 1px solid var(--linha);
+    }
+    .marca { display: flex; align-items: center; gap: 12px; }
+    .marca-icone {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--display-corpo); display: grid; place-items: center;
+    }
+    .marca h1 {
+      margin: 0; font-family: var(--fonte-sinal); font-weight: 600;
+      font-size: 26px; line-height: 1.1; letter-spacing: .01em;
+    }
+    .marca p { margin: 0; color: var(--tinta-suave); font-size: 15px; }
+    .conexoes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .selo {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 999px; font-size: 15px; font-weight: 500;
+      background: var(--neutro-fundo); color: var(--tinta-suave);
+    }
+    .selo::before {
+      content: ""; width: 9px; height: 9px; border-radius: 50%;
+      background: currentColor;
+    }
+    .selo.ok   { background: var(--ok-fundo);   color: var(--ok); }
+    .selo.erro { background: var(--erro-fundo); color: var(--erro); }
+
+    /* ---------- Estrutura ---------- */
+    main {
+      max-width: 1180px; margin: 0 auto;
+      padding: clamp(16px, 3vw, 32px) clamp(16px, 4vw, 40px) 48px;
+      display: grid; gap: 24px;
+      grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr);
+      align-items: start;
+    }
+    @media (max-width: 880px) { main { grid-template-columns: 1fr; } }
+    .coluna { display: grid; gap: 20px; }
+
+    .aviso-config {
+      grid-column: 1 / -1; margin: 0; padding: 14px 18px;
+      border-radius: var(--raio); background: var(--erro-fundo); color: var(--erro);
+      font-weight: 500;
+    }
+    .aviso-config code { font-size: 15px; }
+    .aviso-demo { background: var(--ticket); color: var(--ticket-tinta); }
+
+    /* ---------- O display (o elemento principal) ---------- */
+    .display {
+      background: var(--display-corpo);
+      border: 1px solid var(--display-borda);
+      border-radius: 22px;
+      padding: clamp(20px, 4vw, 36px);
+      color: #C9D1E0;
+    }
+    .display-topo {
+      display: flex; justify-content: space-between; align-items: baseline;
+      gap: 12px; margin-bottom: 18px;
+      font-family: var(--fonte-sinal); font-size: 20px; letter-spacing: .02em;
+    }
+    .display-topo span:last-child { color: #8892A6; font-size: 17px; }
+    .digitos {
+      display: flex; justify-content: center; gap: clamp(10px, 2.5vw, 22px);
+      padding: clamp(14px, 3vw, 28px) 0;
+      background: #0F131B; border-radius: 14px;
+      border: 1px solid #222938;
+    }
+    .digitos svg { width: clamp(70px, 14vw, 132px); height: auto; overflow: visible; }
+    .seg { fill: var(--led-apagado); transition: fill .15s; }
+    .seg.on { fill: var(--led-aceso); }
+    .legenda-display {
+      margin: 18px 0 0; text-align: center;
+      font-family: var(--fonte-sinal); font-weight: 500;
+      font-size: clamp(22px, 3vw, 30px); color: #FFFFFF;
+    }
+    @media (prefers-reduced-motion: no-preference) {
+      .display.piscar .seg.on { animation: piscar .9s steps(1) 1; }
+      @keyframes piscar { 0%, 50% { fill: var(--led-aceso); } 25%, 75% { fill: var(--led-apagado); } }
+    }
+
+    /* ---------- Ações ---------- */
+    .acoes {
+      background: var(--superficie); border-radius: var(--raio);
+      border: 1px solid var(--linha); padding: 20px;
+    }
+    .botoes { display: flex; flex-wrap: wrap; gap: 12px; }
+    button {
+      font: inherit; font-weight: 600; cursor: pointer;
+      border-radius: 12px; padding: 16px 24px; min-height: 56px;
+      border: 2px solid transparent;
+    }
+    button:focus-visible { outline: 3px solid #F5B100; outline-offset: 3px; }
+    .btn-chamar {
+      flex: 1 1 260px; background: var(--guiche); color: #fff; font-size: 20px;
+    }
+    .btn-chamar:hover:not(:disabled) { background: var(--guiche-escuro); }
+    .btn-repetir {
+      flex: 0 1 220px; background: transparent; color: var(--guiche);
+      border-color: var(--guiche); font-size: 18px;
+    }
+    .btn-repetir:hover:not(:disabled) { background: #EEF3FF; }
+    button:disabled { cursor: not-allowed; opacity: .45; }
+    .retorno {
+      margin: 16px 0 0; padding: 12px 14px; border-radius: 10px;
+      background: var(--neutro-fundo); color: var(--tinta); min-height: 48px;
+    }
+    .opcoes { margin-top: 14px; color: var(--tinta-suave); font-size: 15px; }
+    .opcoes label { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+    .opcoes input { width: 18px; height: 18px; accent-color: var(--guiche); }
+
+    /* ---------- Fila em forma de senha de papel ---------- */
+    .ticket {
+      position: relative; background: var(--ticket); color: var(--ticket-tinta);
+      border-radius: 10px; padding: 22px 24px 20px;
+      -webkit-mask: radial-gradient(circle 11px at 0 58%, #0000 98%, #000) left / 51% 100% no-repeat,
+                    radial-gradient(circle 11px at 100% 58%, #0000 98%, #000) right / 51% 100% no-repeat;
+              mask: radial-gradient(circle 11px at 0 58%, #0000 98%, #000) left / 51% 100% no-repeat,
+                    radial-gradient(circle 11px at 100% 58%, #0000 98%, #000) right / 51% 100% no-repeat;
+    }
+    .ticket h2 { margin: 0; font-size: 17px; font-weight: 500; }
+    .fila-numero {
+      font-family: var(--fonte-sinal); font-weight: 600;
+      font-size: 76px; line-height: 1; margin: 6px 0 0;
+      font-variant-numeric: tabular-nums;
+    }
+    .fila-texto { margin: 2px 0 14px; font-size: 18px; font-weight: 500; }
+    .ticket-rodape {
+      border-top: 2px dashed #D9C47A; padding-top: 12px; margin: 0;
+      font-size: 15px;
+    }
+
+    /* ---------- Histórico ---------- */
+    .cartao {
+      background: var(--superficie); border: 1px solid var(--linha);
+      border-radius: var(--raio); padding: 20px;
+    }
+    .cartao h2 { margin: 0 0 10px; font-size: 18px; font-weight: 600; }
+    .historico { list-style: none; margin: 0; padding: 0; }
+    .historico li {
+      display: flex; justify-content: space-between; gap: 12px;
+      padding: 10px 0; border-top: 1px solid var(--linha);
+    }
+    .historico li:first-child { border-top: 0; }
+    .historico .senha { font-weight: 600; }
+    .historico .tag { color: var(--tinta-suave); font-weight: 400; }
+    .historico time { color: var(--tinta-suave); font-variant-numeric: tabular-nums; }
+    .vazio { color: var(--tinta-suave); margin: 0; }
+
+    .visualmente-oculto {
+      position: absolute; width: 1px; height: 1px; overflow: hidden;
+      clip: rect(0 0 0 0); white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <header class="topo">
+    <div class="marca">
+      <div class="marca-icone" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF3B2F" stroke-width="2.2" stroke-linecap="round"><path d="M7 4h10M7 20h10M5 6v5M19 6v5M5 13v5M19 13v5M7 12h10"/></svg>
+      </div>
+      <div>
+        <h1>Chamador de senha</h1>
+        <p>Painel do atendente</p>
+      </div>
+    </div>
+    <div class="conexoes">
+      <span id="selo-painel" class="selo">Painel: conectando ao broker…</span>
+      <span id="selo-chamador" class="selo">Chamador: sem informação</span>
+    </div>
+  </header>
+
+  <main>
+    <p id="aviso-config" class="aviso-config" hidden></p>
+
+    <div class="coluna">
+      <section id="display" class="display" aria-labelledby="titulo-display">
+        <div class="display-topo">
+          <span id="titulo-display">Senha chamada</span>
+          <span>Guichê 1</span>
+        </div>
+        <div id="digitos" class="digitos" aria-hidden="true"></div>
+        <p id="legenda-display" class="legenda-display" aria-live="polite">Nenhuma senha chamada ainda</p>
+      </section>
+
+      <section class="acoes" aria-label="Comandos">
+        <div class="botoes">
+          <button id="btn-chamar" class="btn-chamar" disabled>Chamar próxima senha</button>
+          <button id="btn-repetir" class="btn-repetir" disabled>Repetir chamada</button>
+        </div>
+        <p id="retorno" class="retorno" role="status">Aguardando conexão com o broker.</p>
+        <div class="opcoes">
+          <label><input type="checkbox" id="som" checked> Tocar um aviso sonoro no painel a cada chamada</label>
+        </div>
+      </section>
+    </div>
+
+    <div class="coluna">
+      <section class="ticket" aria-labelledby="titulo-fila">
+        <h2 id="titulo-fila">Fila de atendimento</h2>
+        <p id="fila-numero" class="fila-numero">–</p>
+        <p id="fila-texto" class="fila-texto">Aguardando o chamador</p>
+        <p class="ticket-rodape">A fila aumenta quando alguém aperta o botão “Pegar senha” no chamador.</p>
+      </section>
+
+      <section class="cartao" aria-labelledby="titulo-historico">
+        <h2 id="titulo-historico">Últimas chamadas</h2>
+        <p id="historico-vazio" class="vazio">As senhas chamadas aparecem aqui.</p>
+        <ol id="historico" class="historico" reversed></ol>
+      </section>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script src="https://unpkg.com/mqtt@5/dist/mqtt.min.js"></script>
+  <script>
+    // =========================================================
+    //  1. DESENHO DO DISPLAY DE 7 SEGMENTOS (igual ao do ESP32)
+    // =========================================================
+    // Segmentos a, b, c, d, e, f, g
+    const FORMAS = [
+      "14,4 46,4 51,9 46,14 14,14 9,9",      // a
+      "48,15 53,11 58,15 58,44 53,48 48,44", // b
+      "48,56 53,52 58,56 58,85 53,89 48,85", // c
+      "14,86 46,86 51,91 46,96 14,96 9,91",  // d
+      "2,56 7,52 12,56 12,85 7,89 2,85",     // e
+      "2,15 7,11 12,15 12,44 7,48 2,44",     // f
+      "14,45 46,45 51,50 46,55 14,55 9,50"   // g
+    ];
+    // Mesmos desenhos do código do ESP32 (bit 0 = a ... bit 6 = g)
+    const NUMEROS = [0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110,
+                     0b1101101, 0b1111101, 0b0000111, 0b1111111, 0b1101111];
+    const TRACO = 0b1000000;
+    const QTD_DIGITOS = 3;
+
+    const caixaDigitos = document.getElementById("digitos");
+    const segmentos = [];
+    for (let d = 0; d < QTD_DIGITOS; d++) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 60 100");
+      const grupo = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      grupo.setAttribute("transform", "skewX(-6) translate(6 0)");
+      const desteDigito = FORMAS.map(pontos => {
+        const p = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+        p.setAttribute("points", pontos);
+        p.setAttribute("class", "seg");
+        grupo.appendChild(p);
+        return p;
+      });
+      svg.appendChild(grupo);
+      caixaDigitos.appendChild(svg);
+      segmentos.push(desteDigito);
+    }
+
+    function desenharDigito(posicao, desenho) {
+      segmentos[posicao].forEach((seg, i) => seg.classList.toggle("on", Boolean(desenho & (1 << i))));
+    }
+
+    function mostrarNoDisplay(senha) {
+      if (!senha) {
+        for (let d = 0; d < QTD_DIGITOS; d++) desenharDigito(d, TRACO);
+        return;
+      }
+      const texto = String(senha % 1000).padStart(QTD_DIGITOS, " ");
+      [...texto].forEach((c, d) => desenharDigito(d, c === " " ? 0 : NUMEROS[Number(c)]));
+    }
+
+    // =========================================================
+    //  2. ELEMENTOS DA TELA E ESTADO
+    // =========================================================
+    const el = id => document.getElementById(id);
+    const estado = { painelConectado: false, chamadorOnline: null, senhaAtual: null, fila: null };
+
+    function mostrarSelo(id, texto, tipo) {
+      el(id).textContent = texto;
+      el(id).className = "selo" + (tipo ? " " + tipo : "");
+    }
+
+    function atualizarBotoes() {
+      const pode = estado.painelConectado && estado.chamadorOnline === true;
+      el("btn-chamar").disabled = !pode;
+      el("btn-repetir").disabled = !pode;
+    }
+
+    function mostrarRetorno(texto) { el("retorno").textContent = texto; }
+
+    function mostrarFila(qtd) {
+      estado.fila = qtd;
+      el("fila-numero").textContent = qtd;
+      el("fila-texto").textContent =
+        qtd === 0 ? "Ninguém esperando" : qtd === 1 ? "pessoa esperando" : "pessoas esperando";
+    }
+
+    function mostrarSenha(senha, ehNovaChamada) {
+      estado.senhaAtual = senha;
+      mostrarNoDisplay(senha);
+      el("legenda-display").textContent = senha ? `Senha ${senha} chamada` : "Nenhuma senha chamada ainda";
+      if (ehNovaChamada) {
+        destacarChamada();
+        adicionarHistorico(senha, false);
+      }
+    }
+
+    function destacarChamada() {
+      const display = el("display");
+      display.classList.remove("piscar");
+      void display.offsetWidth;  // reinicia a animação
+      display.classList.add("piscar");
+      tocarSom();
+    }
+
+    function adicionarHistorico(senha, repetida) {
+      el("historico-vazio").hidden = true;
+      const item = document.createElement("li");
+      const nome = document.createElement("span");
+      nome.className = "senha";
+      nome.textContent = `Senha ${senha}`;
+      if (repetida) {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = " (repetida)";
+        nome.appendChild(tag);
+      }
+      const hora = document.createElement("time");
+      const agora = new Date();
+      hora.dateTime = agora.toISOString();
+      hora.textContent = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+      item.append(nome, hora);
+      const lista = el("historico");
+      lista.prepend(item);
+      while (lista.children.length > 6) lista.lastElementChild.remove();
+    }
+
+    // Som "plim-plom" feito pelo próprio navegador (não precisa de arquivo de áudio)
+    let audio = null;
+    function tocarSom() {
+      if (!el("som").checked) return;
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        [[880, 0], [660, 0.28]].forEach(([freq, atraso]) => {
+          const osc = audio.createOscillator();
+          const vol = audio.createGain();
+          osc.frequency.value = freq;
+          const t = audio.currentTime + atraso;
+          vol.gain.setValueAtTime(0.0001, t);
+          vol.gain.exponentialRampToValueAtTime(0.25, t + 0.02);
+          vol.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+          osc.connect(vol).connect(audio.destination);
+          osc.start(t);
+          osc.stop(t + 0.55);
+        });
+      } catch (e) { /* navegador sem áudio: segue sem som */ }
+    }
+
+    mostrarNoDisplay(0);
+
+    // =========================================================
+    //  3. MODO DEMONSTRAÇÃO (abra com ?demo no final do endereço)
+    //     Simula o ESP32 só para ver a tela, sem hardware nenhum.
+    // =========================================================
+    const MODO_DEMO = new URLSearchParams(location.search).has("demo");
+
+    function iniciarDemo() {
+      el("aviso-config").hidden = false;
+      el("aviso-config").classList.add("aviso-demo");
+      el("aviso-config").textContent =
+        "Modo demonstração: nenhum chamador de verdade está conectado. Tire o ?demo do endereço para usar o sistema real.";
+      let emitida = 7, chamada = 4;
+      estado.painelConectado = true; estado.chamadorOnline = true;
+      mostrarSelo("selo-painel", "Painel: conectado ao broker", "ok");
+      mostrarSelo("selo-chamador", "Chamador: online", "ok");
+      mostrarFila(emitida - chamada);
+      mostrarSenha(chamada, false);
+      [2, 3, 4].forEach(s => adicionarHistorico(s, false));
+      mostrarRetorno("Pronto para chamar.");
+      atualizarBotoes();
+      el("btn-chamar").onclick = () => {
+        if (emitida - chamada <= 0) return mostrarRetorno("Ninguém na fila");
+        chamada++;
+        mostrarSenha(chamada, true);
+        mostrarFila(emitida - chamada);
+        mostrarRetorno(`Senha ${chamada} chamada`);
+      };
+      el("btn-repetir").onclick = () => {
+        destacarChamada();
+        adicionarHistorico(chamada, true);
+        mostrarRetorno(`Senha ${chamada} chamada de novo`);
+      };
+    }
+
+    // =========================================================
+    //  4. CONEXÃO REAL COM O BROKER MQTT
+    // =========================================================
+    function iniciarMqtt() {
+      if (!window.CONFIG) {
+        el("aviso-config").hidden = false;
+        el("aviso-config").innerHTML =
+          "Não encontrei o arquivo <code>config.js</code>. Ele precisa estar na mesma pasta do <code>index.html</code>.";
+        mostrarSelo("selo-painel", "Painel: sem configuração", "erro");
+        return;
+      }
+      if (location.protocol === "https:" && CONFIG.broker.startsWith("ws://")) {
+        el("aviso-config").hidden = false;
+        el("aviso-config").innerHTML =
+          "Este painel está num site seguro (https), então o navegador só aceita broker com <code>wss://</code>. No <code>config.js</code>, use <code>wss://broker.hivemq.com:8884/mqtt</code>.";
+        mostrarSelo("selo-painel", "Painel: endereço do broker inseguro", "erro");
+        return;
+      }
+      if (!window.mqtt) {
+        el("aviso-config").hidden = false;
+        el("aviso-config").textContent =
+          "Não consegui carregar a biblioteca MQTT.js. Confira se este computador está com internet e recarregue a página.";
+        mostrarSelo("selo-painel", "Painel: biblioteca não carregou", "erro");
+        return;
+      }
+
+      const base = CONFIG.topicoBase;
+      const T = {
+        fila: base + "/fila", atual: base + "/atual", aviso: base + "/aviso",
+        status: base + "/status", comando: base + "/comando"
+      };
+
+      const cliente = mqtt.connect(CONFIG.broker, {
+        clientId: "painel-" + Math.random().toString(16).slice(2, 8),
+        username: CONFIG.usuario || undefined,
+        password: CONFIG.senha || undefined,
+        reconnectPeriod: 3000,   // tenta reconectar a cada 3 segundos
+        connectTimeout: 5000
+      });
+
+      cliente.on("connect", () => {
+        estado.painelConectado = true;
+        mostrarSelo("selo-painel", "Painel: conectado ao broker", "ok");
+        cliente.subscribe([T.fila, T.atual, T.aviso, T.status], { qos: 1 });
+        mostrarRetorno("Conectado. Esperando o chamador responder.");
+        atualizarBotoes();
+      });
+
+      const aoPerderConexao = () => {
+        estado.painelConectado = false;
+        estado.chamadorOnline = null;
+        mostrarSelo("selo-painel", "Painel: sem conexão com o broker, tentando de novo…", "erro");
+        mostrarSelo("selo-chamador", "Chamador: sem informação");
+        mostrarRetorno("O painel perdeu a conexão com o broker. Os botões voltam quando a conexão voltar.");
+        atualizarBotoes();
+      };
+      cliente.on("offline", aoPerderConexao);
+      cliente.on("close", () => { if (estado.painelConectado) aoPerderConexao(); });
+      cliente.on("error", erro => console.warn("Erro MQTT:", erro.message));
+
+      cliente.on("message", (topico, dados, pacote) => {
+        const msg = dados.toString().trim();
+        const veioGuardado = pacote.retain;  // true = valor antigo guardado no broker
+
+        if (topico === T.status) {
+          estado.chamadorOnline = msg === "online";
+          mostrarSelo("selo-chamador", estado.chamadorOnline ? "Chamador: online" : "Chamador: offline",
+                      estado.chamadorOnline ? "ok" : "erro");
+          if (!estado.chamadorOnline) mostrarRetorno("O chamador está offline. Confira se o ESP32 está ligado e com Wi-Fi.");
+          else if (veioGuardado) mostrarRetorno("Pronto para chamar.");
+          atualizarBotoes();
+        }
+        else if (topico === T.fila) {
+          const qtd = parseInt(msg, 10);
+          if (!Number.isNaN(qtd)) mostrarFila(qtd);
+        }
+        else if (topico === T.atual) {
+          const senha = parseInt(msg, 10);
+          if (Number.isNaN(senha)) return;
+          const ehNova = !veioGuardado && senha !== estado.senhaAtual && senha > 0;
+          mostrarSenha(senha, ehNova);
+        }
+        else if (topico === T.aviso) {
+          mostrarRetorno(msg);
+          if (msg.includes("de novo") && estado.senhaAtual) {
+            destacarChamada();
+            adicionarHistorico(estado.senhaAtual, true);
+          }
+        }
+      });
+
+      function enviarComando(comando, textoEspera) {
+        cliente.publish(T.comando, comando, { qos: 1 });
+        mostrarRetorno(textoEspera);
+      }
+      el("btn-chamar").onclick  = () => enviarComando("proxima", "Comando enviado. Aguardando o chamador confirmar…");
+      el("btn-repetir").onclick = () => enviarComando("repetir", "Pedindo para repetir. Aguardando o chamador…");
+    }
+
+    if (MODO_DEMO) iniciarDemo(); else iniciarMqtt();
+  </script>
+</body>
+</html>
