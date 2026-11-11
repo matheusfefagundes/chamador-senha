@@ -176,15 +176,49 @@ void conectarMqtt() {
   }
 }
 
+// Quando o Wi-Fi não conecta, mostra no Monitor Serial as redes que o ESP32
+// está vendo e diz se o problema parece ser o nome ou a senha.
+void diagnosticarWifi() {
+  Serial.println("--- Redes Wi-Fi que o ESP32 está vendo ---");
+  int quantidade = WiFi.scanNetworks();
+  bool achou = false;
+  for (int i = 0; i < quantidade; i++) {
+    String nome = WiFi.SSID(i);
+    Serial.print("  \"");
+    Serial.print(nome);
+    Serial.print("\"");
+    if (nome == WIFI_NOME) {
+      achou = true;
+      Serial.print("   <- é a rede do config.h");
+    }
+    Serial.println();
+  }
+  if (quantidade <= 0) Serial.println("  (nenhuma rede encontrada)");
+  if (!achou) {
+    Serial.println("A rede \"" + String(WIFI_NOME) + "\" NÃO apareceu.");
+    Serial.println("Confira o nome (maiúsculas contam), se o roteador está ligado e se está em 2,4 GHz.");
+  } else {
+    Serial.println("A rede apareceu, mas não conectou: provavelmente a SENHA está errada.");
+  }
+  Serial.println("------------------------------------------");
+  WiFi.scanDelete();
+}
+
 // Chamada em todo loop. Nunca trava: tenta de novo a cada alguns segundos.
 void cuidarDaConexao() {
   if (WiFi.status() != WL_CONNECTED) {
     digitalWrite(PINO_LED_REDE, LOW);
     if (millis() - ultimaTentativaWifi > 10000) {
-      ultimaTentativaWifi = millis();
       Serial.println("Sem Wi-Fi. Tentando reconectar...");
       WiFi.disconnect();
+      // Só nas 3 primeiras tentativas: a busca de redes trava uns 2 segundos
+      static int tentativasComDiagnostico = 0;
+      if (tentativasComDiagnostico < 3) {
+        tentativasComDiagnostico++;
+        diagnosticarWifi();
+      }
       WiFi.begin(WIFI_NOME, WIFI_SENHA);
+      ultimaTentativaWifi = millis();
     }
     return;
   }
